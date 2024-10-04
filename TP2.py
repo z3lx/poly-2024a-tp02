@@ -55,40 +55,51 @@ def add_collection(
 # PARTIE 1 : Création du système de gestion et ajout de la collection actuelle
 ##########################################################################################################
 
-bibliotheque: Dict[str, Dict[str, str]] = {}
-add_collection(bibliotheque, "collection_bibliotheque.csv")
-print(f' \n Bibliotheque initiale : {bibliotheque} \n')
+library: Dict[str, Dict[str, str]] = {}
+add_collection(library, "collection_bibliotheque.csv")
+print(f' \n Bibliotheque initiale : {library} \n')
 
 ##########################################################################################################
 # PARTIE 2 : Ajout d'une nouvelle collection à la bibliothèque
 ##########################################################################################################
 
-add_collection(bibliotheque, "nouvelle_collection.csv", log=True)
+add_collection(library, "nouvelle_collection.csv", log=True)
 
 ##########################################################################################################
 # PARTIE 3 : Modification de la cote de rangement d'une sélection de livres
 ##########################################################################################################
 
 modifications = [
-    cote for cote, book in bibliotheque.items()
+    cote for cote, book in library.items()
     if book["auteur"] == "William Shakespeare"
 ]
 for cote in modifications:
     new_cote = cote.replace("S", "WS")
-    bibliotheque[new_cote] = bibliotheque.pop(cote)
-print(f' \n Bibliotheque avec modifications de cote : {bibliotheque} \n')
+    library[new_cote] = library.pop(cote)
+print(f' \n Bibliotheque avec modifications de cote : {library} \n')
 
 ##########################################################################################################
 # PARTIE 4 : Emprunts et retours de livres
 ##########################################################################################################
 
-# TODO : Écrire votre code ici
+borrows: Dict[str, str] = {}
+with open("emprunts.csv", "r", newline="", encoding="utf-8") as f:
+    reader = csv.reader(f)
+    for row in reader:
+        if reader.line_num == 1:
+            continue
 
+        cote, date = row
+        borrows[cote] = date
 
+for cote, book in library.items():
+    title, author, year = book.values()
+    borrow_status = "emprunté" if cote in borrows else "disponible"
+    borrow_date = borrows.get(cote, "N/A")
+    library[cote]["emprunts"] = borrow_status
+    library[cote]["date_emprunt"] = borrow_date
 
-
-
-
+print(f' \n Bibliotheque avec ajout des emprunts : {library} \n')
 
 ##########################################################################################################
 # PARTIE 5 : Livres en retard
