@@ -55,7 +55,7 @@ def add_collection(
 # PARTIE 1 : Création du système de gestion et ajout de la collection actuelle
 ##########################################################################################################
 
-bibliotheque = {}
+bibliotheque: Dict[str, Dict[str, str]] = {}
 add_collection(bibliotheque, "collection_bibliotheque.csv")
 print(f' \n Bibliotheque initiale : {bibliotheque} \n')
 
@@ -69,13 +69,14 @@ add_collection(bibliotheque, "nouvelle_collection.csv", log=True)
 # PARTIE 3 : Modification de la cote de rangement d'une sélection de livres
 ##########################################################################################################
 
-# TODO : Écrire votre code ici
-
-
-
-
-
-
+modifications = [
+    cote for cote, book in bibliotheque.items()
+    if book["auteur"] == "William Shakespeare"
+]
+for cote in modifications:
+    new_cote = cote.replace("S", "WS")
+    bibliotheque[new_cote] = bibliotheque.pop(cote)
+print(f' \n Bibliotheque avec modifications de cote : {bibliotheque} \n')
 
 ##########################################################################################################
 # PARTIE 4 : Emprunts et retours de livres
