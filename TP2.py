@@ -1,28 +1,26 @@
-"""
-TP2 : Système de gestion de livres pour une bibliothèque
+# Commit history available: https://github.com/z3lx/poly-2024a-tp02
 
-Groupe de laboratoire : XX
-Numéro d'équipe :  YY
-Noms et matricules : Nom1 (Matricule1), Nom2 (Matricule2)
-"""
-
+import copy
 import csv
 import os
 from datetime import datetime
 from typing import Dict, Union, List
 
+Library = Dict[str, Union[Dict[str, Union[str, int]], List[str]]]
 
-def add_collection(
-    library: Dict[str, Dict[str, str]],
-    collection_path: str,
+
+def library_add_collection(
+    library: Library,
+    file_path: str,
     skip_first_line: bool = True,
     log: bool = False
-) -> None:
-    if not os.path.exists(collection_path):
-        print(f"Le fichier '{collection_path}' n'existe pas.")
-        return
+) -> Library:
+    if not os.path.exists(file_path):
+        print(f"Le fichier '{file_path}' n'existe pas.")
+        return {}
 
-    with open(collection_path, "r", newline="", encoding="utf-8") as f:
+    new_library = copy.deepcopy(library)
+    with open(file_path, "r", newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
         for row in reader:
             if skip_first_line and reader.line_num == 1:
@@ -30,14 +28,14 @@ def add_collection(
 
             title, author, year, cote = row
 
-            if cote in library:
+            if cote in new_library:
                 status_message = (
                     f"Le livre {cote} ---- "
                     f"{title} par {author} ---- "
                     f"est déjà présent dans la bibliothèque"
                 )
             else:
-                library[cote] = {
+                new_library[cote] = {
                     "titre": title,
                     "auteur": author,
                     "date_publication": year
@@ -50,6 +48,59 @@ def add_collection(
 
             if log:
                 print(status_message)
+    return new_library
+
+
+def library_select(
+    library: Library,
+    title: str = None,
+    author: str = None,
+    year: str = None
+) -> List[str]:
+    return [
+        cote for cote, book in library.items()
+        if (title is None or book["titre"] == title) and
+           (author is None or book["auteur"] == author) and
+           (year is None or book["date_publication"] == year)
+    ]
+
+
+def library_update_cote(
+    library: Library,
+    selection: List[str]
+) -> Library:
+    new_library = copy.deepcopy(library)
+    for cote in selection:
+        new_cote = cote.replace("S", "WS", 1)
+        new_library[new_cote] = new_library.pop(cote)
+    return new_library
+
+
+def load_borrows(
+    file_path: str,
+    skip_first_line: bool = True
+) -> Dict[str, str]:
+    borrows: Dict[str, str] = {}
+    with open(file_path, "r", newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if skip_first_line and reader.line_num == 1:
+                continue
+            cote, date = row
+            borrows[cote] = date
+    return borrows
+
+
+def library_add_borrows(
+    library: Library,
+    borrows: Dict[str, str]
+) -> Library:
+    new_library = copy.deepcopy(library)
+    for cote, book in new_library.items():
+        status = "emprunté" if cote in borrows else "disponible"
+        new_library[cote]["emprunts"] = status
+        new_library[cote]["date_emprunt"] = borrows.get(cote, "N/A")
+    return new_library
 
 
 def elapsed_days(date: str) -> int:
@@ -58,69 +109,68 @@ def elapsed_days(date: str) -> int:
     return (current_date - given_date).days
 
 
-##########################################################################################################
-# PARTIE 1 : Création du système de gestion et ajout de la collection actuelle
-##########################################################################################################
+def library_add_fees(
+    library: Library,
+    log: bool = False
+) -> Library:
+    new_library = copy.deepcopy(library)
+    lost_books = []
+    for cote, book in new_library.items():
+        title, author, year, borrow_status, borrow_date = book.values()
 
-library: Dict[str, Union[Dict[str, Union[str, int]], List[str]]] = {}
-add_collection(library, "collection_bibliotheque.csv")
-print(f' \n Bibliotheque initiale : {library} \n')
+        elapsed_late = 0 if borrow_status != "emprunté" \
+            else max(elapsed_days(borrow_date) - 30, 0)
 
-##########################################################################################################
-# PARTIE 2 : Ajout d'une nouvelle collection à la bibliothèque
-##########################################################################################################
+        if elapsed_late > 365:
+            fee = 0
+            lost_books.append(cote)
+        else:
+            fee = min(elapsed_late * 2, 100)
 
-add_collection(library, "nouvelle_collection.csv", log=True)
+        new_library[cote]["frais_retard"] = fee
+        if fee > 0 and log:
+            print(f"Livre '{cote}' en retard: frais de {fee}$")
+    new_library["livres_perdus"] = lost_books
+    return new_library
 
-##########################################################################################################
-# PARTIE 3 : Modification de la cote de rangement d'une sélection de livres
-##########################################################################################################
 
-modifications = [
-    cote for cote, book in library.items()
-    if book["auteur"] == "William Shakespeare"
-]
-for cote in modifications:
-    new_cote = cote.replace("S", "WS")
-    library[new_cote] = library.pop(cote)
-print(f' \n Bibliotheque avec modifications de cote : {library} \n')
+def main() -> None:
+    ############################################################################
+    # PT1 : Création du système de gestion et ajout d'une collection actuelle  #
+    ############################################################################
 
-##########################################################################################################
-# PARTIE 4 : Emprunts et retours de livres
-##########################################################################################################
+    library = library_add_collection({}, "collection_bibliotheque.csv")
+    print(f" \n Bibliotheque initiale : {library} \n")
 
-borrows: Dict[str, str] = {}
-with open("emprunts.csv", "r", newline="", encoding="utf-8") as f:
-    reader = csv.reader(f)
-    for row in reader:
-        if reader.line_num == 1:
-            continue
-        cote, date = row
-        borrows[cote] = date
+    ############################################################################
+    # PT2 : Ajout d'une nouvelle collection à la bibliothèque                  #
+    ############################################################################
 
-for cote, book in library.items():
-    title, author, year = book.values()
-    library[cote]["emprunts"] = "emprunté" if cote in borrows else "disponible"
-    library[cote]["date_emprunt"] = borrows.get(cote, "N/A")
+    library = library_add_collection(library, "nouvelle_collection.csv", log=True)
 
-print(f' \n Bibliotheque avec ajout des emprunts : {library} \n')
+    ############################################################################
+    # PT3 : Modification de la cote de rangement d'une sélection de livres     #
+    ############################################################################
 
-##########################################################################################################
-# PARTIE 5 : Livres en retard
-##########################################################################################################
+    selection = library_select(library, author="William Shakespeare")
+    library = library_update_cote(library, selection)
+    print(f" \n Bibliotheque avec modifications de cote : {library} \n")
 
-lost_books = []
-for cote, book in library.items():
-    title, author, year, borrow_status, borrow_date = book.values()
-    elapsed_late = 0 if borrow_status != "emprunté" else max(elapsed_days(borrow_date) - 30, 0)
-    if elapsed_late > 365:
-        fee = 0
-        lost_books.append(cote)
-    else:
-        fee = min(elapsed_late * 2, 100)
-    library[cote]["frais_retard"] = fee
-    if fee > 0:
-        print(f"Livre '{cote}' en retard: frais de {fee}$")
-library["livres_perdus"] = lost_books
+    ############################################################################
+    # PT4 : Emprunts et retours de livres                                      #
+    ############################################################################
 
-print(f' \n Bibliotheque avec ajout des retards et frais : {library} \n')
+    borrows = load_borrows("emprunts.csv")
+    library = library_add_borrows(library, borrows)
+    print(f" \n Bibliotheque avec ajout des emprunts : {library} \n")
+
+    ############################################################################
+    # PT5 : Livres en retard                                                   #
+    ############################################################################
+
+    library = library_add_fees(library, log=True)
+    print(f" \n Bibliotheque avec ajout des retards et frais : {library} \n")
+
+
+if __name__ == "__main__":
+    main()
